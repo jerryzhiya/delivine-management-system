@@ -31,7 +31,9 @@ export const getExpenseStats = async (_req: Request, res: Response) => {
       totals[expense.category] = (totals[expense.category] || 0) + expense.amount;
       return totals;
     }, {});
-    const topCategory = Object.entries(categoryTotals).sort(([, first], [, second]) => second - first)[0];
+    const topCategory = Object.entries(categoryTotals).sort(
+      ([, first], [, second]) => (second as number) - (first as number)
+    )[0];
 
     return res.status(200).json({
       totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
