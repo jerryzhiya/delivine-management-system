@@ -19,7 +19,6 @@ import {
   Settings,
   User,
   Calendar,
-  ShieldCheck,
   BookMarked,
   X,
   type LucideIcon,
@@ -46,30 +45,28 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<string>('ADMIN');
 
+  // Automatically close mobile sidebar when the route changes
   useEffect(() => {
-    // Sync current user role from cookie or local storage
-    const storedRole = Cookies.get('user_role');
-    let roleUpdateId: number | undefined;
+    if (isOpen && onClose) {
+      onClose();
+    }
+  }, [pathname]);
 
+  useEffect(() => {
+    const storedRole = Cookies.get('user_role');
     if (storedRole) {
-      roleUpdateId = window.setTimeout(() => setUserRole(storedRole.toUpperCase()), 0);
+      setUserRole(storedRole.toUpperCase());
     } else {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
-          if (user?.role) {
-            roleUpdateId = window.setTimeout(() => setUserRole(user.role.toUpperCase()), 0);
-          }
+          if (user?.role) setUserRole(user.role.toUpperCase());
         } catch {
           console.error('Failed to parse user data');
         }
       }
     }
-
-    return () => {
-      if (roleUpdateId !== undefined) window.clearTimeout(roleUpdateId);
-    };
   }, []);
 
   const masterSections: NavSection[] = [
@@ -93,7 +90,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
       title: 'Academics & Work',
       items: [
         { label: 'Subjects', href: '/dashboard/subjects', icon: BookOpen, roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
-        { label: 'Timetable', href: '/dashboard/timetable/', icon: Calendar, roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { label: 'Timetable', href: '/dashboard/timetable', icon: Calendar, roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { label: 'Student Record', href: '/dashboard/grade', icon: BookOpen, roles: ['ADMIN', 'TEACHER'] },
         { label: 'Classes', href: '/dashboard/admin/classes', icon: BookMarked, roles: ['ADMIN'] },
         { label: 'Assignments', href: '/dashboard/admin/assignments', icon: FileSpreadsheet, roles: ['ADMIN', 'TEACHER'] },
@@ -106,7 +103,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
       title: 'Finance & System',
       items: [
         { label: 'Payments & Tuition', href: '/dashboard/admin/payments', icon: CreditCard, roles: ['ADMIN'] },
-        { label: 'Payment Gateway', href: '/dashboard/paymentgateway', icon: CreditCard, roles: ['ADMIN', 'TEACHER', 'PARENT', 'STUDENT']},
+        { label: 'Payment Gateway', href: '/dashboard/paymentgateway', icon: CreditCard, roles: ['ADMIN', 'TEACHER', 'PARENT', 'STUDENT'] },
         { label: 'Portal Settings', href: '/dashboard/admin/settings', icon: Settings, roles: ['ADMIN', 'PARENT', 'TEACHER', 'STUDENT'] },
       ],
     },
@@ -118,7 +115,6 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
     },
   ];
 
-  // Filter sections and items based on user role
   const menuSections: NavSection[] = masterSections
     .map((section) => ({
       ...section,
@@ -128,21 +124,23 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
 
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
+      {/* Touch-Friendly Mobile Backdrop */}
       {isOpen && (
-        <div
+        <button
+          type="button"
+          aria-label="Close menu"
           onClick={onClose}
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden w-full h-full border-0 cursor-default"
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Dynamic Mobile Viewport Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 shrink-0 bg-slate-900 text-slate-300 p-4 flex flex-col border-r border-slate-800 transition-transform duration-200 ease-in-out ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-[100dvh] w-64 shrink-0 bg-slate-900 text-slate-300 p-4 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Brand Header */}
+        {/* Header */}
         <div className="px-3 py-2 flex items-center justify-between border-b border-slate-800 pb-4 shrink-0">
           <span className="font-bold text-white text-lg tracking-wide">EduPortal</span>
           <div className="flex items-center gap-2">
@@ -151,8 +149,9 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
             </span>
             {onClose && (
               <button
+                type="button"
                 onClick={onClose}
-                className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg"
+                className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg focus:outline-none"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -160,7 +159,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
           </div>
         </div>
 
-        {/* Dynamic Navigation Sections */}
+        {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto space-y-5 pt-4 pr-1">
           {menuSections.map((section, idx) => (
             <div key={idx} className="space-y-1">
@@ -175,8 +174,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={onClose}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 ${
                       isActive
                         ? 'bg-indigo-600 text-white shadow-md font-semibold'
                         : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
