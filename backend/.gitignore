@@ -1,0 +1,15 @@
+node_modules
+# Keep environment variables out of version control
+.env
+dist
+/generated/prisma
+
+# TypeScript build artifacts accidentally emitted beside source files
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+prisma/*.js
+prisma/*.js.map
+prisma/*.d.ts
+prisma/*.d.ts.map

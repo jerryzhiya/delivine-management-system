@@ -1,0 +1,287 @@
+// Schema.prisma file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  TRANSFERRED
+  WITHDRAWN
+  INACTIVE
+}
+
+enum ParentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+}
+
+enum AnnouncementType {
+  Holiday
+  Event
+  General
+}
+
+model Users {
+  id                  String           @id @default(auto()) @map("_id") @db.ObjectId
+  email               String           @unique
+  password            String
+  name                String
+  role                Role             @default(STUDENT)
+  subjects            Subject[]        @relation("TeacherSubjects")
+  resetPasswordToken  String?
+  resetPasswordExpire DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  schedulePeriods     SchedulePeriod[] @relation("TeacherSchedulePeriods")
+}
+
+model Parent {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String       @unique
+  phone        String
+  relationship String? // "Father", "Mother", "Guardian"
+  address      String?
+  avatar       String?
+  status       ParentStatus @default(ACTIVE)
+
+  studentIds String[]  @db.ObjectId
+  students   Student[] @relation(fields: [studentIds], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Student {
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  firstName  String
+  middleName String?
+  lastName   String
+  grade      String?
+  avatar     String?
+  status     StudentStatus @default(ACTIVE)
+  isActive   Boolean       @default(true)
+  submission Submission[]
+  enrollDate DateTime      @default(now())
+
+  attendance   Attendance[]
+  gradeRecords GradeRecord[]
+  payments     Payment[]
+
+  // Parent Relation for MongoDB
+  parentIds String[] @db.ObjectId
+  parents   Parent[] @relation(fields: [parentIds], references: [id])
+}
+
+model Teacher {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  email      String   @unique
+  subject    String
+  phone      String?
+  experience Int      @default(0)
+  avatar     String?
+  hireDate   DateTime @default(now())
+  classes    Class[]
+  payrollRecords TeacherPayroll[]
+}
+
+model TeacherPayroll {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  teacherId   String    @db.ObjectId
+  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  period      String
+  baseSalary  Float
+  deductions  Float     @default(0)
+  netSalary   Float
+  status      String    @default("PENDING") // PENDING, PAID, CANCELLED
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([teacherId, period])
+  @@index([period])
+}
+
+model SchoolExpense {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  category    String
+  amount      Float
+  status      String    @default("PENDING") // PENDING, PAID, CANCELLED
+  expenseDate DateTime  @default(now())
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([expenseDate])
+  @@index([category])
+}
+
+model Announcement {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  description    String
+  category       String   @default("General")
+  date           DateTime
+  targetAudience String   @default("All")
+  isPinned       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Attendance {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String?  @db.ObjectId
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  date      DateTime @default(now())
+  status    String // e.g., "Present", "Absent", "Late"
+  remarks   String?
+  createdAt DateTime @default(now())
+}
+
+model GradeRecord {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String?   @db.ObjectId
+  student   Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  subject   String
+  grade     String //A, B, C, D, E
+  score     Float
+  ca1       Float?
+  ca2       Float?
+  ca3       Float?
+  exam      Float?
+  term      String?
+  remark    String?
+  createdAt DateTime? @default(now())
+}
+
+model Class {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  name            String           @unique // e.g., "Class 10-A"
+  teacherId       String?          @db.ObjectId // Assigned Homeroom Teacher
+  teacher         Teacher?         @relation(fields: [teacherId], references: [id])
+  subjects        Subject[]        @relation("ClassSubjects")
+  capacity        Int?             @default(30)
+  createdAt       DateTime         @default(now())
+  schedulePeriods SchedulePeriod[] @relation("ClassSchedulePeriods")
+}
+
+model Payment {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String?   @db.ObjectId
+  student       Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  totalFee      Float     @default(0)
+  amountPaid    Float     @default(0)
+  status        String // PAID, PARTIAL, PENDING
+  paymentMethod String    @default("CASH") // GATEWAY, BANK_TRANSFER, CASH
+  reference     String? // Gateway tx reference or transfer ID
+  proofUrl      String? // Optional URL for transfer receipt image
+  type          String?   @default("School Fees")
+  date          DateTime? @default(now())
+  createdAt     DateTime  @default(now())
+}
+
+model SchedulePeriod {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  dayOfWeek String
+  startTime String
+  endTime   String
+  room      String? @default("")
+  isBreak   Boolean @default(false)
+
+  classId String @db.ObjectId
+  class   Class  @relation("ClassSchedulePeriods", fields: [classId], references: [id], onDelete: Cascade)
+
+  subjectId String?  @db.ObjectId
+  subject   Subject? @relation("SubjectSchedulePeriods", fields: [subjectId], references: [id], onDelete: SetNull)
+
+  teacherId String? @db.ObjectId
+  teacher   Users?  @relation("TeacherSchedulePeriods", fields: [teacherId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subject {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  code        String  @unique
+  description String? @default("")
+
+  // Foreign key for assigned Teacher
+  teacherId String? @db.ObjectId
+  teacher   Users?  @relation("TeacherSubjects", fields: [teacherId], references: [id], onDelete: SetNull)
+
+  // Foreign key for assigned Class
+  classId String? @db.ObjectId
+  class   Class?  @relation("ClassSubjects", fields: [classId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  schedulePeriods SchedulePeriod[] @relation("SubjectSchedulePeriods")
+}
+
+model Assignment {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  type            String // e.g., "Homework", "Task", "Project", "Reading"
+  classId         String // e.g., "10-A" (or relation to Class model)
+  subject         String // e.g., "Mathematics"
+  status          String   @default("Active") // "Active", "Overdue", "Completed"
+  description     String
+  attachments     String[] // Array of file names or URLs
+  dueDate         DateTime
+  submissionCount Int      @default(0) // Renamed from 'submissions' to prevent collision
+  totalStudents   Int      @default(0) // Total students in the class
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relation field to Submission model
+  submissions Submission[]
+}
+
+model Submission {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  assignmentId String @db.ObjectId
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  studentId    String?  @db.ObjectId
+  student      Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  content      String?
+  attachments  String[]
+  StudentName  String?
+  studentClass String?
+  status       String   @default("Submitted")
+  grade        Float?
+  feedback     String?
+  submittedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([assignmentId, studentId])
+}
+
+model ActivityLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  type        String
+  createdAt   DateTime @default(now())
+}
