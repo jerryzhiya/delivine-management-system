@@ -96,17 +96,22 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 }
 
 // Database Connection
-async function main() {
+// Database Connection & Server Start
+async function startServer() {
   try {
     await prisma.$connect();
     console.log("✅ Successfully connected to MongoDB Atlas");
+
+    app.listen(PORT, HOST, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   } catch (error) {
     console.error("❌ Failed to connect to MongoDB:", error);
     process.exit(1);
   }
 }
 
-main();
+startServer();
 
 app.listen(PORT, HOST, () => {
   console.log(`Server running on port ${PORT}`);
